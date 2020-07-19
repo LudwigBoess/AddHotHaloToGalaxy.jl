@@ -1,0 +1,29 @@
+input_snap:   path/to/snap
+output_file:  path/to/output.file
+verbose:      True
+
+glass_file: "/home/moon/lboess/ICs/Glass/glass_c6_n600.ic"
+
+# galaxy parameters
+Mdm:     94.1339
+v200:   145.0
+lambda:   0.1
+xH:       0.76  # Hydrogen mass fraction
+
+
+# halo parameters
+npartgas:           500000
+Mgas:               5.46
+r0:                 20.0
+rho0:               5.0e-26   # g/cm^3
+rho_IGM:            1.e-29    # g/cm^3
+cc:                 12.5  
+rc_frac:            0.35
+
+# units
+UnitLength_in_cm:     3.085678e+21   
+UnitMass_in_g:        1.989e+43
+UnitVelocity_in_cm_s: 1.0e+5
+
+# cosmology
+h: 0.71
