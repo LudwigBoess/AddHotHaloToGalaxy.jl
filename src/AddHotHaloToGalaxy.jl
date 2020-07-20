@@ -2,6 +2,7 @@ module AddHotHaloToGalaxy
 
     include("io.jl")
     include("construct_halo.jl")
+    include("cut_ids_from_disk.jl")
 
     export add_hot_halo_to_galaxy
 
@@ -75,7 +76,7 @@ module AddHotHaloToGalaxy
             t1 = time_ns()
         end
 
-        write_to_file(pos_halo, vel_halo, rho_halo, u_halo, m_halo, par)
+        write_to_file(pos_halo, vel_halo, u_halo, m_halo, par)
 
         if par["verbose"]
             t2 = time_ns()
