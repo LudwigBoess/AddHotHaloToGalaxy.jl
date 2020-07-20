@@ -81,8 +81,7 @@ function construct_spherical_coordinates(x::Array{Float64,1}, y::Array{Float64,1
 
     @fastmath r = sqrt.( x.^2 .+ y.^2 .+ z.^2 )
 
-    phi = xy_to_phi(x, y)
-
+    phi   = atan.(x, y)
     theta = acos.( z ./ r )
 
     r = r.^3
@@ -118,11 +117,8 @@ function glass_spherical_dist(nparticles::Int64, glass_file::String)
     
     x, y, z = construct_large_glass(pos, n, ntot, nx, ny, nz)
 
-    r, theta, phi = construct_spherical_coordinates(x, y, z, nparticles)
 
-    # x = @. r * cos(phi) * sin(theta)
-    # y = @. r * sin(phi) * sin(theta)
-    # z = @. r            * cos(theta)
+    r, theta, phi = construct_spherical_coordinates(x, y, z, nparticles)
 
     return [r phi theta]
 
@@ -159,8 +155,7 @@ function gashalo_beta(par)
     Mgas = par["Mgas"] * par["UnitMass_in_g"]
 
     n    = par["npartgas"]
-
-
+    
     # find maximum sampling radius of gas halo
     rmax = find_rmax(par["rc"], par["rc_frac"], par["rho0"], Mgas)
 
@@ -202,11 +197,12 @@ function gashalo_beta(par)
         @info "    Converting spherical to cartesian coordinates."
     end
 
-    x = r_phi_theta[:,1] .* sin.(r_phi_theta[:,3]) .* cos.(r_phi_theta[:,2])
-    y = r_phi_theta[:,1] .* sin.(r_phi_theta[:,3]) .* sin.(r_phi_theta[:,2])
-    z = r_phi_theta[:,1]                           .* cos.(r_phi_theta[:,2]) 
+    # convert back to cartesian coordinates
+    x = r_phi_theta[:,1] .* cos.(r_phi_theta[:,2]) .* sin.(r_phi_theta[:,3])
+    y = r_phi_theta[:,1] .* sin.(r_phi_theta[:,2]) .* sin.(r_phi_theta[:,3])
+    z = r_phi_theta[:,1]                           .* cos.(r_phi_theta[:,3]) 
 
-    return [ x y z ]
+    return r_phi_theta[:,1], [ x y z ]
 end
 
 function gashalo_vphi(r_in::Vector{Float64}, par)
@@ -215,7 +211,7 @@ function gashalo_vphi(r_in::Vector{Float64}, par)
     
     vphi = @. sqrt( par["G"] * par["Mdm"] * r ) / ( r + par["a"] ) * par["lambda"]
 
-    return vphi ./ par["UnitLength_in_cm"]
+    return vphi ./ par["UnitVelocity_in_cm_s"]
 end
 
 function convert_vphi_to_cart(vphi::Vector{Float64}, pos::Array{Float64,2})
@@ -248,10 +244,7 @@ function halo_temp(r, par)
     return T
 end
 
-function halo_u(pos_halo, par)
-
-    # compute radius from positions
-    r = @. sqrt( pos_halo[:,1]^2 + pos_halo[:,2]^2 + pos_halo[:,3]^2 )
+function halo_u(r, par)
 
     # compute temperature as function of radius
     T = zeros(length(r))
@@ -268,6 +261,11 @@ function halo_u(pos_halo, par)
     return T ./ ( par["UnitVelocity_in_cm_s"]^2 .* 2.0/3.0 .* par["mu"] ./ par["kB"] )
 end
 
+function halo_rho(r, par)
+    # β-model with β = 2/3
+    return @. par["rho0"] / ( 1.0 + (r * par["UnitLength_in_cm"] / par["rc"])^2) / par["UnitDensity_in_cgs"]
+end
+
 function construct_hot_halo(par)
 
     if par["verbose"]
@@ -275,7 +273,7 @@ function construct_hot_halo(par)
         t1 = time_ns()
     end
 
-    pos = gashalo_beta(par)
+    r, pos = gashalo_beta(par)
 
     if par["verbose"]
         t2 = time_ns()
@@ -302,8 +300,9 @@ function construct_hot_halo(par)
         @info "  Computing internal energy of particles"
         t1 = time_ns()
     end
+
     # halo_u missing!
-    u = halo_u(pos, par)
+    u = halo_u(r, par)
 
     if par["verbose"]
         t2 = time_ns()
@@ -325,10 +324,23 @@ function construct_hot_halo(par)
         @info "  Took $(output_time(t1,t2)) s"
     end
 
+    if par["verbose"]
+        @info "  Computing ideal density"
+        t1 = time_ns()
+    end
+
+    rho = halo_rho(r, par)
+
+    if par["verbose"]
+        t2 = time_ns()
+        @info "  Done!"
+        @info "  Took $(output_time(t1,t2)) s"
+    end
+
     # compensate for 'little h'.
     pos .*= par["h"]
     u   .*= par["h"]
     
-    return pos, vel, u, m
+    return pos, vel, u, m, rho
 
 end
