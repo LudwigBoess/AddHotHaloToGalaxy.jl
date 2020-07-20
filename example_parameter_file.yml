@@ -1,5 +1,6 @@
 input_snap:   path/to/snap
 output_file:  path/to/output.file
+ic_format:    "float"
 verbose:      True
 
 glass_file: "/home/moon/lboess/ICs/Glass/glass_c6_n600.ic"
