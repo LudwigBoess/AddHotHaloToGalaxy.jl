@@ -130,9 +130,9 @@ function cut_ids_from_halo(pos_halo, rho_halo, par)
         @info "  Took $(output_time(t1,t2)) s"
     end
 
-    resx = 50
-    resy = 50
-    resz = 50
+    resx = par["interp_resolution"]
+    resy = par["interp_resolution"]
+    resz = par["interp_resolution"]
 
     if par["verbose"]
         @info "  TSC Interpolation"
