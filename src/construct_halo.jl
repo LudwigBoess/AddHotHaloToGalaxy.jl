@@ -58,9 +58,9 @@ end
 
 @inline function xy_to_phi(x::Vector{Float64}, y::Vector{Float64})
 
-    phi = zeros(length(x))
+    phi = zeros(size(x,1))
     
-    @threads for i = 1:length(x)
+    @threads for i = 1:size(x,1)
         if ( x[i] > 0.0 )
             phi[i] = atan( y[i]/ x[i] )
         elseif ( x[i] == 0.0 )
@@ -79,15 +79,23 @@ end
 function construct_spherical_coordinates(x::Array{Float64,1}, y::Array{Float64,1}, z::Array{Float64,1},
                                          nparticles::Integer)
 
-    @fastmath r = sqrt.( x.^2 .+ y.^2 .+ z.^2 )
+    n_samples = size(x,1)
 
-    phi   = atan.(x, y)
-    theta = acos.( z ./ r )
+    phi       = zeros(n_samples)
+    theta     = zeros(n_samples)
+    r         = zeros(n_samples)
+
+    for i = 1:n_samples
+        r[i]     = sqrt( x[i]^2 + y[i]^2 + z[i]^2 )
+        #phi[i]   = atan(y[i], x[i])
+        theta[i] = atan( sqrt(x[i]^2 + y[i]^2 )/ z[i] )
+    end
+    phi   = xy_to_phi(x, y)
 
     r = r.^3
 
     id = findall( r .< 1.0)
-    count_in = length(id)
+    count_in = size(id,1)
 
     # cut out sphere so that particle number equals about nparticles
     id = findall( r .<= nparticles/count_in )
@@ -108,8 +116,8 @@ function glass_spherical_dist(nparticles::Int64, glass_file::String)
     # number of stacks in x, y, z direction
     nx = ny = nz = floor(Int64, nnn^(1.0/3.0)) + 1
 
-    pos_info = Info_Line("POS", Float32, 3, [ 1, 0, 0, 0, 0, 0 ] )
-    pos = read_block_by_name(glass_file, "POS", info=pos_info, parttype=0) ./ h.boxsize
+    pos_info = InfoLine("POS", Float32, 3, [ 1, 0, 0, 0, 0, 0 ] )
+    pos = read_block(glass_file, "POS", info=pos_info, parttype=0) ./ h.boxsize
     pos = Float64.(pos) # convert from Float32 to Float64
 
     n =  h.npart[1]
@@ -117,6 +125,7 @@ function glass_spherical_dist(nparticles::Int64, glass_file::String)
     
     x, y, z = construct_large_glass(pos, n, ntot, nx, ny, nz)
 
+    return x, y, z
 
     r, theta, phi = construct_spherical_coordinates(x, y, z, nparticles)
 
@@ -128,16 +137,16 @@ end
                                UnitMass_in_g::Float64, UnitLength_in_cm::Float64)
 
     rho_rmax  = rho0 / ( 1.0 + (rmax/rc)^2 )
-    rho_rmax /= UnitMass_in_g / UnitLength_in_cm^3
+    rho_rmax /= (UnitMass_in_g / UnitLength_in_cm^3)
     return rho_rmax
 end
 
-function rescale_r(r_in::Array{Float64,1}, 
+function rescale_r!(r_in::Array{Float64,1}, 
                    rc::Float64, rc_frac::Float64, rho0::Float64, Mgas::Float64)
 
     start = rc/rc_frac
 
-    @showprogress for i = 1:length(r_in)
+    @inbounds for i = 1:size(r_in,1)
         q = r_in[i]
         # define helper function because root finding allows only one input parameter
         r_helper(r) = rootfinding_for_r(r, rc, rho0, Mgas, q)
@@ -146,7 +155,7 @@ function rescale_r(r_in::Array{Float64,1},
         start       = r
     end
 
-    return r_in
+    nothing
 end
 
 function gashalo_beta(par)
@@ -160,7 +169,7 @@ function gashalo_beta(par)
     rmax = find_rmax(par["rc"], par["rc_frac"], par["rho0"], Mgas)
 
     if par["verbose"]
-        @info "    Maximum sampling radius: rmax = $rmax   rmax/rc = $(rmax/par["rc"])"
+        @info "    Maximum sampling radius: rmax = $(rmax/par["UnitLength_in_cm"])   rmax/rc = $(rmax/par["rc"])"
     end
 
     # find density at maximum sampling radius
@@ -172,28 +181,48 @@ function gashalo_beta(par)
 
     # if no glass file specified sample halo from random distribution
     if par["glass_file"] == ""
+        if par["verbose"]
+            @info "    Sampling random positions."
+        end
         r_phi_theta = rand(n, 3)
-        r_phi_theta[:,3] = @. acos( 2.0 * r_phi_theta[:,2] - 1.0)
-        r_phi_theta[:,2] = @. 2π * r_phi_theta[:,3]
+        r_phi_theta[:,3] = @. acos( 2.0 * r_phi_theta[:,3] - 1.0)
+        r_phi_theta[:,2] = @. 2π * r_phi_theta[:,2]
 
     # otherwise construct it from stacking a glass file
     else
+        if par["verbose"]
+            @info "    Sampling from glass file."
+        end
         r_phi_theta = glass_spherical_dist(n, par["glass_file"])
-        n           = length(r_phi_theta[:,1])
+        n           = size(r_phi_theta,1)
     end
 
     if par["verbose"]
-        @info "    rescaling r"
+        
+        @info "    maximum r = $(maximum(r_phi_theta[:,1]))"
+        @info "    rescaling r, rmax = $(rmax/par["UnitLength_in_cm"])"
+
     end
-    r_phi_theta[:,1] = rescale_r(r_phi_theta[:,1], par["rc"], par["rc_frac"], par["rho0"], Mgas)
+
+    sort!(r_phi_theta[:,1])
+
+    rescale_r!(r_phi_theta[:,1], par["rc"], par["rc_frac"], par["rho0"], Mgas)
+
 
     if par["verbose"]
         @info "    Converting back into code units."
     end
+    if par["verbose"]
+        @info "    maximum r = $(maximum(r_phi_theta[:,1]))"
+    end
+    max_sampled = maximum(r_phi_theta[:,1])
+    r_phi_theta[:,1] .*= (rmax / max_sampled)
 
     r_phi_theta[:,1] ./= par["UnitLength_in_cm"]
 
     if par["verbose"]
+        @info "    maximum r = $(maximum(r_phi_theta[:,1]))"
+        #error("done")
         @info "    Converting spherical to cartesian coordinates."
     end
 
@@ -218,9 +247,9 @@ function convert_vphi_to_cart(vphi::Vector{Float64}, pos::Array{Float64,2})
 
     phi = xy_to_phi(pos[:,1], pos[:,2])
 
-    vel = zeros(length(pos[:,1]), 3)
+    vel = zeros(size(pos,1), 3)
     
-    for i = 1:length(pos[:,1])
+    for i = 1:size(pos,1)
         vel[i,1] = -vphi[i] * sin(phi[i])
         vel[i,2] =  vphi[i] * cos(phi[i])
     end
@@ -247,8 +276,8 @@ end
 function halo_u(r, par)
 
     # compute temperature as function of radius
-    T = zeros(length(r))
-    @threads for i = 1:length(r)
+    T = zeros(size(r,1))
+    @threads for i = 1:size(r,1)
         @inbounds T[i] = halo_temp(r[i], par)
     end
 
@@ -273,7 +302,7 @@ function construct_hot_halo(par)
         t1 = time_ns()
     end
 
-    r, pos = gashalo_beta(par)
+    r, pos = gashalo_beta(par) 
 
     if par["verbose"]
         t2 = time_ns()
@@ -287,8 +316,8 @@ function construct_hot_halo(par)
     end
     
     # find mass of a gas particle
-    particle_mass_gas = par["Mgas"] / length(pos[:,1])
-    m = particle_mass_gas .* ones(length(pos[:,1]))
+    particle_mass_gas = par["Mgas"] / size(pos,1)
+    m = particle_mass_gas .* ones(size(pos,1))
 
     if par["verbose"]
         t2 = time_ns()
