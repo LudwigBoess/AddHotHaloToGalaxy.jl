@@ -37,6 +37,11 @@ module AddHotHaloToGalaxy
         end
 
         if par["verbose"]
+            r_dummy = @. sqrt(pos_halo[:,1]^2 + pos_halo[:,2]^2 + pos_halo[:,3]^2 )
+            @info "r_max = $(maximum(r_dummy))"
+        end
+
+        if par["verbose"]
             @info "Selecting IDs of Gas particles to be cut out"
             t1 = time_ns()
         end
@@ -49,7 +54,7 @@ module AddHotHaloToGalaxy
             @info "Took $(output_time(t1,t2)) s"
         end
 
-        npart_before = length(u_halo)
+        npart_before = size(u_halo,1)
 
         # only keep relevant particles
         pos_halo = pos_halo[cut_ids,:]
@@ -58,8 +63,8 @@ module AddHotHaloToGalaxy
         u_halo   = u_halo[cut_ids]
         m_halo   = m_halo[cut_ids]
 
-        npart_after = length(u_halo)
-        n_cut = length(findall(cut_ids .== false))
+        npart_after = size(u_halo,1)
+        n_cut = size(findall(cut_ids .== false),1)
 
         if ( npart_before - npart_after ) != n_cut
             error("Wrrong number of particles cut!
