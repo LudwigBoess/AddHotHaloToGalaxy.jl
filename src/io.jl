@@ -44,14 +44,14 @@ function read_pos_rho_hsml_galaxy(fi::String, ic_format::String="float")
     end
 
     # define info for readin
-    pos_info  = Info_Line("POS",  dtype, 3, [1, 1, 1, 1, 1, 1])
-    rho_info  = Info_Line("RHO",  dtype, 1, [1, 1, 1, 1, 1, 1])
-    hsml_info = Info_Line("HSML", dtype, 1, [1, 1, 1, 1, 1, 1])
+    pos_info  = InfoLine("POS",  dtype, 3, [1, 1, 1, 1, 1, 1])
+    rho_info  = InfoLine("RHO",  dtype, 1, [1, 1, 1, 1, 1, 1])
+    hsml_info = InfoLine("HSML", dtype, 1, [1, 1, 1, 1, 1, 1])
     
     # read the blocks
-    pos  = read_block_by_name(fi, "POS",  info=pos_info,  parttype=0)
-    rho  = read_block_by_name(fi, "RHO",  info=rho_info,  parttype=0) 
-    hsml = read_block_by_name(fi, "HSML", info=hsml_info, parttype=0)   
+    pos  = read_block(fi, "POS",  info=pos_info,  parttype=0)
+    rho  = read_block(fi, "RHO",  info=rho_info,  parttype=0) 
+    hsml = read_block(fi, "HSML", info=hsml_info, parttype=0)   
 
     return pos, rho, hsml 
 end
@@ -64,13 +64,15 @@ function read_data_gas(fi::String, ic_format::String="float")
         dtype = Float64
     end
 
-    info_3d = Info_Line("POS", dtype, 3, [1, 1, 1, 1, 1, 1])
-    info_1d = Info_Line("POS", dtype, 1, [1, 1, 1, 1, 1, 1])
+    info_3d = InfoLine("POS", dtype, 3, [1, 1, 1, 1, 1, 1])
+    info_1d = InfoLine("POS", dtype, 1, [1, 1, 1, 1, 1, 1])
 
-    pos  = read_block_by_name(fi, "POS",  info=info_3d, parttype=0)
-    vel  = read_block_by_name(fi, "VEL",  info=info_3d, parttype=0) 
-    u    = read_block_by_name(fi, "U",    info=info_1d, parttype=0)
-    m    = read_block_by_name(fi, "MASS", info=info_1d, parttype=0)
+    pos  = read_block(fi, "POS",  info=info_3d, parttype=0)
+    vel  = read_block(fi, "VEL",  info=info_3d, parttype=0) 
+    u    = read_block(fi, "U",    info=info_1d, parttype=0)
+    m    = read_block(fi, "MASS", info=info_1d, parttype=0)
+
+    calculate_COM!(pos)
 
     return Float32.(pos), Float32.(vel), Float32.(u), Float32.(m)
 end
@@ -83,12 +85,14 @@ function read_data_collisionless(fi::String, parttype::Int64, ic_format::String=
         dtype = Float64
     end
 
-    info_3d = Info_Line("POS", dtype, 3, [1, 1, 1, 1, 1, 1])
-    info_1d = Info_Line("POS", dtype, 1, [1, 1, 1, 1, 1, 1])
+    info_3d = InfoLine("POS", dtype, 3, [1, 1, 1, 1, 1, 1])
+    info_1d = InfoLine("POS", dtype, 1, [1, 1, 1, 1, 1, 1])
 
-    pos  = read_block_by_name(fi, "POS",  info=info_3d, parttype=parttype)
-    vel  = read_block_by_name(fi, "VEL",  info=info_3d, parttype=parttype)
-    m    = read_block_by_name(fi, "MASS", info=info_1d, parttype=parttype) 
+    pos  = read_block(fi, "POS",  info=info_3d, parttype=parttype)
+    vel  = read_block(fi, "VEL",  info=info_3d, parttype=parttype)
+    m    = read_block(fi, "MASS", info=info_1d, parttype=parttype) 
+
+    calculate_COM!(pos)
 
     return Float32.(pos), Float32.(vel), Float32.(m)
 end
@@ -101,7 +105,12 @@ function write_to_file(pos_halo, vel_halo, u_halo, m_halo, par)
     end
 
     # store number of particles in halo 
-    Nhalo  = length(u_halo)
+    Nhalo  = size(u_halo,1)
+
+    if par["verbose"]
+        @info "  Nhalo = $Nhalo"
+        t1 = time_ns()
+    end
 
     # read the header of the input snap
     header = head_to_obj(par["input_snap"])
@@ -113,8 +122,8 @@ function write_to_file(pos_halo, vel_halo, u_halo, m_halo, par)
     ids = UInt32.(collect(1:Ntotal))
 
     # allocate empty arrays for particles
-    pos = zeros(Float32, (Ntotal, 3) )
-    vel = zeros(Float32, (Ntotal, 3) )
+    pos = zeros(Float32, Ntotal, 3 )
+    vel = zeros(Float32, Ntotal, 3 )
     u   = zeros(Float32, header.npart[1]+Nhalo )
     m   = zeros(Float32, Ntotal )
 
@@ -128,7 +137,8 @@ function write_to_file(pos_halo, vel_halo, u_halo, m_halo, par)
     Nstart = Nhalo + 1
     Npart  = header.npart[1]
     pos[Nstart:Nstart+Npart-1,:], vel[Nstart:Nstart+Npart-1,:], u[Nstart:Nstart+Npart-1], m[Nstart:Nstart+Npart-1] = read_data_gas(par["input_snap"], par["ic_format"])
-
+    Nstart += Npart
+    
     # read collisionless particles
     @inbounds for parttype = 1:5
         Npart = header.npart[parttype+1]
