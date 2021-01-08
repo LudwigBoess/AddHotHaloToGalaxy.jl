@@ -2,20 +2,9 @@ using TriangularShapedCloudInterpolation
 using ProgressMeter
 using Base.Threads 
 
-function calculate_COM(x)
-    com = zeros(3)
-    for i = 1:3
-        com[i] = sum(x[:,i]) / length(x[:,i])
-    end
-    for i = 1:3
-        x[:,i] .-= com[i]
-    end
-    return x
-end
-
 function run_tsc(pos_disk, rho, resx, resy, resz, verbose)
 
-    pos_disk_tsc = zeros(length(rho),3)
+    pos_disk_tsc = zeros(size(rho,1),3)
 
     minx = minimum(pos_disk[:,1])
     maxx = maximum(pos_disk[:,1]) .* (1.0+1.e-6)
@@ -37,9 +26,8 @@ function run_tsc(pos_disk, rho, resx, resy, resz, verbose)
         t1 = time_ns()
     end
 
-    tsc = TSCInterpolation(rho, pos_disk_tsc[:,1], resx, 
-                                pos_disk_tsc[:,2], resy, 
-                                pos_disk_tsc[:,3], resz, 
+    tsc = TSCInterpolation(rho, pos_disk_tsc,
+                            [resx, resy, resz], 
                             average=true)
 
     if verbose
@@ -84,7 +72,7 @@ end
         #     end
         # end
 
-        @threads for i = 1:length(rho_halo)
+        @threads for i = 1:size(rho_halo,1)
             @inbounds if (  (lx < pos_halo[i,2] < rx) &
                             (ly < pos_halo[i,1] < ry) &
                             (lz < pos_halo[i,3] < rz) )
@@ -100,35 +88,8 @@ end
 
 end
 
-function cut_ids_from_halo(pos_halo, rho_halo, par)
+function cut_ids_from_halo(galaxy, pos_halo, rho_halo, par)
 
-    if par["verbose"]
-        @info "  Reading galaxy data"
-        t1 = time_ns()
-    end
-
-    # read in data from galaxy
-    pos_disk, rho_disk, hsml_disk = read_pos_rho_hsml_galaxy(par["input_snap"], par["ic_format"])
-
-    if par["verbose"]
-        t2 = time_ns()
-        @info "  Done!"
-        @info "  Took $(output_time(t1,t2)) s"
-    end
-
-    if par["verbose"]
-        @info "  Shifting to center of mass."
-        t1 = time_ns()
-    end
-    # move to center of mass
-    x_halo = calculate_COM(pos_halo)
-    x_disk = calculate_COM(pos_halo)
-
-    if par["verbose"]
-        t2 = time_ns()
-        @info "  Done!"
-        @info "  Took $(output_time(t1,t2)) s"
-    end
 
     resx = par["interp_resolution"]
     resy = par["interp_resolution"]
@@ -139,7 +100,8 @@ function cut_ids_from_halo(pos_halo, rho_halo, par)
         t1 = time_ns()
     end
 
-    rho_tsc, minx, miny, minz, dx, dy, dz = run_tsc(pos_disk, rho_disk, resx, resy, resz, par["verbose"])
+    rho_tsc, minx, miny, minz, dx, dy, dz = run_tsc(galaxy["PartType0"]["POS"], galaxy["PartType0"]["RHO"], 
+                                                    resx, resy, resz, par["verbose"])
 
     if par["verbose"]
         t2 = time_ns()
@@ -152,7 +114,7 @@ function cut_ids_from_halo(pos_halo, rho_halo, par)
         t1 = time_ns()
     end
 
-    keep_id = trues(length(rho_halo))
+    keep_id = trues(size(rho_halo,1))
     keep_id = find_ids_from_density_criterion(  keep_id, pos_halo, rho_halo, rho_tsc, 
                                                 resx, resy, resz,
                                                 dx, dy, dz,
@@ -160,7 +122,7 @@ function cut_ids_from_halo(pos_halo, rho_halo, par)
 
     if par["verbose"]
         t2 = time_ns()
-        @info "  Done! We need to delete $(length(findall(keep_id .== false) )) particles."
+        @info "  Done! We need to delete $(size(findall(keep_id .== false),1)) particles."
         @info "  Took $(output_time(t1,t2)) s."
     end
 

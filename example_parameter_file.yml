@@ -7,16 +7,16 @@ interp_resolution: 20
 glass_file: "/home/moon/lboess/ICs/Glass/glass_c6_n600.ic"
 
 # galaxy parameters
-Mdm:     94.1339
 v200:   145.0
 lambda:   0.1
-xH:       0.76  # Hydrogen mass fraction
-B0:       0.0
+xH:       0.76     # Hydrogen mass fraction
+B0:       0.0      # magnetic field 
 
 
 # halo parameters
-npartgas:           500000
-Mgas:               5.46
+npartgas:           0         # set to  0 if you want to have the same number of particles as in the gas disk
+                              # set to -1 if you want the gas particles to have the same mass as the ones in the disk 
+Mgas:               0.0       # set to 0.0 if you want to calculate it from m_gas + m_star + m_bulge
 r0:                 20.0
 rho0:               5.0e-26   # g/cm^3
 rho_IGM:            1.e-29    # g/cm^3
