@@ -1,0 +1,8 @@
+ERROR: LoadError: ArgumentError: Package Pkg not found in current path:
+- Run `import Pkg; Pkg.add("Pkg")` to install the Pkg package.
+
+Stacktrace:
+ [1] require(::Module, ::Symbol) at ./loading.jl:893
+ [2] include(::String) at ./client.jl:457
+ [3] top-level scope at none:5
+in expression starting at /home/moon/lboess/.julia/dev/AddHotHaloToGalaxy/deps/build.jl:1

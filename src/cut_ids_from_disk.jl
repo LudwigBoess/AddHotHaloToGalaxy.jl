@@ -2,18 +2,6 @@ using TriangularShapedCloudInterpolation
 using ProgressMeter
 using Base.Threads 
 
-function calculate_COM!(x)
-    com = zeros(3)
-    
-    @inbounds for i = 1:3
-        com[i] = sum(x[:,i]) / size(x,1)
-    end
-    @inbounds for N = 1:size(x,1), i = 1:3
-        x[N,i] -= com[i]
-    end
-    return x
-end
-
 function run_tsc(pos_disk, rho, resx, resy, resz, verbose)
 
     pos_disk_tsc = zeros(size(rho,1),3)
@@ -100,35 +88,8 @@ end
 
 end
 
-function cut_ids_from_halo(x_halo, rho_halo, par)
+function cut_ids_from_halo(galaxy, pos_halo, rho_halo, par)
 
-    if par["verbose"]
-        @info "  Reading galaxy data"
-        t1 = time_ns()
-    end
-
-    # read in data from galaxy
-    x_disk, rho_disk, hsml_disk = read_pos_rho_hsml_galaxy(par["input_snap"], par["ic_format"])
-
-    if par["verbose"]
-        t2 = time_ns()
-        @info "  Done!"
-        @info "  Took $(output_time(t1,t2)) s"
-    end
-
-    if par["verbose"]
-        @info "  Shifting to center of mass."
-        t1 = time_ns()
-    end
-    # move to center of mass
-    calculate_COM!(x_halo)
-    calculate_COM!(x_disk)
-
-    if par["verbose"]
-        t2 = time_ns()
-        @info "  Done!"
-        @info "  Took $(output_time(t1,t2)) s"
-    end
 
     resx = par["interp_resolution"]
     resy = par["interp_resolution"]
@@ -139,7 +100,8 @@ function cut_ids_from_halo(x_halo, rho_halo, par)
         t1 = time_ns()
     end
 
-    rho_tsc, minx, miny, minz, dx, dy, dz = run_tsc(x_disk, rho_disk, resx, resy, resz, par["verbose"])
+    rho_tsc, minx, miny, minz, dx, dy, dz = run_tsc(galaxy["PartType0"]["POS"], galaxy["PartType0"]["RHO"], 
+                                                    resx, resy, resz, par["verbose"])
 
     if par["verbose"]
         t2 = time_ns()
@@ -153,7 +115,7 @@ function cut_ids_from_halo(x_halo, rho_halo, par)
     end
 
     keep_id = trues(size(rho_halo,1))
-    keep_id = find_ids_from_density_criterion(  keep_id, x_halo, rho_halo, rho_tsc, 
+    keep_id = find_ids_from_density_criterion(  keep_id, pos_halo, rho_halo, rho_tsc, 
                                                 resx, resy, resz,
                                                 dx, dy, dz,
                                                 minx, miny, minz )
