@@ -1,7 +1,7 @@
 name = "AddHotHaloToGalaxy"
 uuid = "c7bef706-15ea-4461-9a3d-78eb7cf93c70"
 authors = ["LudwigBoess <lboess@usm.lmu.de>"]
-version = "0.1.0"
+version = "0.1.1"
 
 [deps]
 GadgetIO = "826b50da-1eb7-48f3-bd4b-d2350582c309"
@@ -10,3 +10,7 @@ Roots = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 TriangularShapedCloudInterpolation = "51f55a63-7ec5-4b6d-a5a9-9bbf03ec1f62"
 YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
+
+[compat]
+GadgetIO = "0.4"
+TriangularShapedCloudInterpolation = "0.2"
