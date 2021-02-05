@@ -10,10 +10,10 @@ function calculate_COM!(x)
     com = zeros(3)
     
     @inbounds for i = 1:3
-        com[i] = sum(x[:,i]) / size(x,1)
+        com[i] = sum(x[i,:]) / size(x,2)
     end
-    @inbounds for N = 1:size(x,1), i = 1:3
-        x[N,i] -= com[i]
+    @inbounds for N = 1:size(x,2), i = 1:3
+        x[i,N] -= com[i]
     end
     return x
 end
@@ -22,7 +22,7 @@ function find_COM(x)
     com = zeros(3)
     
     @inbounds for i = 1:3
-        com[i] = sum(x[:,i]) / size(x,1)
+        com[i] = sum(x[i,:]) / size(x,2)
     end
 
     return com
@@ -186,7 +186,7 @@ function read_galaxy_data(filename::String, ic_format::String="float")
             data[parttype_arr[p]]["POS"] = read_block(filename, "POS",  info=info_3d, parttype=(p-1))
             # move to center of mass
             for i = 1:h.npart[p], dim = 1:3
-                data[parttype_arr[p]]["POS"][i,dim] -= com[dim]
+                data[parttype_arr[p]]["POS"][dim,i] -= com[dim]
             end
 
             data[parttype_arr[p]]["VEL"]  = read_block(filename, "VEL",  info=info_3d, parttype=(p-1))
@@ -232,15 +232,15 @@ function write_to_file(galaxy, pos_halo, vel_halo, u_halo, rho_halo, m_halo, par
     ids = UInt32.(collect(1:Ntotal))
 
     # allocate empty arrays for particles
-    pos = zeros(Float32, Ntotal, 3 )
-    vel = zeros(Float32, Ntotal, 3 )
+    pos = Matrix{Float32}(undef, 3, Ntotal )
+    vel = Matrix{Float32}(undef, 3, Ntotal )
     u   = zeros(Float32, header.npart[1] )
     rho = zeros(Float32, header.npart[1] )
     m   = zeros(Float32, Ntotal )
 
     # assign halo particles
-    pos[1:Nhalo,:] = Float32.( pos_halo )
-    vel[1:Nhalo,:] = Float32.( vel_halo )
+    pos[:,1:Nhalo] = Float32.( pos_halo )
+    vel[:,1:Nhalo] = Float32.( vel_halo )
     u[1:Nhalo]     = Float32.( u_halo )
     rho[1:Nhalo]   = Float32.( rho_halo )
     m[1:Nhalo]     = Float32.( m_halo )
@@ -248,8 +248,8 @@ function write_to_file(galaxy, pos_halo, vel_halo, u_halo, rho_halo, m_halo, par
     # assign old gas particles
     Nstart = Nhalo + 1
     Npart  = header.npart[1] - Nhalo
-    pos[Nstart:Nstart+Npart-1,:] = galaxy["PartType0"]["POS"]
-    vel[Nstart:Nstart+Npart-1,:] = galaxy["PartType0"]["VEL"]
+    pos[:,Nstart:Nstart+Npart-1] = galaxy["PartType0"]["POS"]
+    vel[:,Nstart:Nstart+Npart-1] = galaxy["PartType0"]["VEL"]
     u[Nstart:Nstart+Npart-1]     = galaxy["PartType0"]["U"]
     rho[Nstart:Nstart+Npart-1]   = galaxy["PartType0"]["RHO"]
     m[Nstart:Nstart+Npart-1]     = galaxy["PartType0"]["MASS"]
@@ -259,14 +259,14 @@ function write_to_file(galaxy, pos_halo, vel_halo, u_halo, rho_halo, m_halo, par
     @inbounds for parttype = 1:5
         Npart = header.npart[parttype+1]
         if Npart > 0
-            pos[Nstart:Nstart+Npart-1,:] = galaxy["PartType$parttype"]["POS"]
-            vel[Nstart:Nstart+Npart-1,:] = galaxy["PartType$parttype"]["VEL"]
+            pos[:,Nstart:Nstart+Npart-1] = galaxy["PartType$parttype"]["POS"]
+            vel[:,Nstart:Nstart+Npart-1] = galaxy["PartType$parttype"]["VEL"]
             m[Nstart:Nstart+Npart-1]     = galaxy["PartType$parttype"]["MASS"]
             Nstart += Npart
         end
     end
 
-    B = Float32.(par["B0"] .* ones(Ntotal, 3) )
+    B = Float32.(par["B0"] .* ones(3,Ntotal) )
 
     if par["verbose"]
         t2 = time_ns()
