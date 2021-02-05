@@ -66,8 +66,8 @@ module AddHotHaloToGalaxy
         npart_before = size(u_halo,1)
 
         # only keep relevant particles
-        pos_halo = pos_halo[cut_ids,:]
-        vel_halo = vel_halo[cut_ids,:]
+        pos_halo = pos_halo[:, cut_ids]
+        vel_halo = vel_halo[:, cut_ids]
         rho_halo = rho_halo[cut_ids]
         u_halo   = u_halo[cut_ids]
         m_halo   = m_halo[cut_ids]

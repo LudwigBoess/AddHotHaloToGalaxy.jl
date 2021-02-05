@@ -4,22 +4,22 @@ using Base.Threads
 
 function run_tsc(pos_disk, rho, resx, resy, resz, verbose)
 
-    pos_disk_tsc = zeros(size(rho,1),3)
+    pos_disk_tsc = Array{eltype(pos_disk[1]),2}(undef, size(pos_disk,2), 1)
 
-    minx = minimum(pos_disk[:,1])
-    maxx = maximum(pos_disk[:,1]) .* (1.0+1.e-6)
+    minx = minimum(pos_disk[1,:])
+    maxx = maximum(pos_disk[1,:]) .* (1.0+1.e-6)
     dx   = -(minx - maxx) / resx
-    pos_disk_tsc[:,1] = ( pos_disk[:,1] .- minx ) ./ dx 
+    pos_disk_tsc[:,1] = @views ( pos_disk[1,:] .- minx ) ./ dx 
 
-    miny = minimum(pos_disk[:,2])
-    maxy = maximum(pos_disk[:,2]) .* (1.0+1.e-6)
+    miny = minimum(pos_disk[2,:])
+    maxy = maximum(pos_disk[2,:]) .* (1.0+1.e-6)
     dy   = -(miny - maxy) / resy
-    pos_disk_tsc[:,2] = ( pos_disk[:,2] .- miny ) ./ dy 
+    pos_disk_tsc[:,2] = @views ( pos_disk[2,:] .- miny ) ./ dy 
 
     minz = minimum(pos_disk[:,3])
     maxz = maximum(pos_disk[:,3]) .* (1.0+1.e-6)
     dz   = -(minz - maxz) / resz
-    pos_disk_tsc[:,3] = ( pos_disk[:,3] .- minz ) ./ dz
+    pos_disk_tsc[:,3] = @views ( pos_disk[3,:] .- minz ) ./ dz
 
     if verbose
         @info "    Running TSC"
@@ -73,9 +73,9 @@ end
         # end
 
         @threads for i = 1:size(rho_halo,1)
-            @inbounds if (  (lx < pos_halo[i,2] < rx) &
-                            (ly < pos_halo[i,1] < ry) &
-                            (lz < pos_halo[i,3] < rz) )
+            @inbounds if (  (lx < pos_halo[1,i] < rx) &
+                            (ly < pos_halo[2,i] < ry) &
+                            (lz < pos_halo[3,i] < rz) )
 
                 if rho_halo[i] < 0.1*rho_tsc[ix, iy, iz]
                     keep_id[i] = false

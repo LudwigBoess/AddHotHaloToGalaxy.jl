@@ -27,16 +27,16 @@ end
 function construct_large_glass(pos::Array{Float64,2}, n::Int32, ntot::Int64, 
                                nx::Int64, ny::Int64, nz::Int64)
 
-    pos_out = zeros(ntot, 3)
+    pos_out = Matrix{eltype(pos[1])}(undef, 3, N)
 
     count = 0
 
     @inbounds for ix = 0:(nx-1), iy = 0:(ny-1), iz = 0:(nz-1)
         
         @inbounds for i = 1:n
-            pos_out[count*n+i, 1] = pos[i,1] + ix 
-            pos_out[count*n+i, 2] = pos[i,2] + iy  
-            pos_out[count*n+i, 3] = pos[i,3] + iz
+            pos_out[1, count*n+i] = pos[1,i] + ix 
+            pos_out[2, count*n+i] = pos[2,i] + iy  
+            pos_out[3, count*n+i] = pos[3,i] + iz
         end
 
         count += 1
@@ -46,13 +46,13 @@ function construct_large_glass(pos::Array{Float64,2}, n::Int32, ntot::Int64,
     #     pos_out[:,dim] ./= nn[dim]
     # end
 
-    pos_out[:,1] ./= nx
-    pos_out[:,2] ./= ny
-    pos_out[:,3] ./= nz
+    pos_out[1,:] ./= nx
+    pos_out[2,:] ./= ny
+    pos_out[3,:] ./= nz
 
-    x = 2.0 .* pos_out[:,1] .- 1.0
-    y = 2.0 .* pos_out[:,2] .- 1.0
-    z = 2.0 .* pos_out[:,3] .- 1.0
+    x = 2.0 .* pos_out[1,:] .- 1.0
+    y = 2.0 .* pos_out[2,:] .- 1.0
+    z = 2.0 .* pos_out[3,:] .- 1.0
 
     return x, y, z
 end
@@ -205,14 +205,17 @@ function gashalo_beta(par)
     end
 
     # convert back to cartesian coordinates
-    x = r .* cos.(ϕ) .* sin.(θ)
-    y = r .* sin.(ϕ) .* sin.(θ)
-    z = r            .* cos.(θ) 
+    pos_out = Matrix{eltype(r[1])}(undef, 3, size(r,1))
+    @inbounds for i = 1:size(r,1)
+        pos_out[1, i] = r * cos(ϕ[i]) * sin(θ[i])
+        pos_out[2, i] = r * sin(ϕ[i]) * sin(θ[i])
+        pos_out[3, i] = r             * cos(θ[i])
+    end
 
-    return r, [ x y z ]
+    return r, pos_out
 end
 
-function gashalo_vphi(r_in::Vector{Float64}, par)
+function gashalo_vphi(r_in::Vector{T}, par) where T
 
     r = r_in .* par["UnitLength_in_cm"]
     
@@ -221,15 +224,15 @@ function gashalo_vphi(r_in::Vector{Float64}, par)
     return vphi ./ par["UnitVelocity_in_cm_s"]
 end
 
-function convert_vphi_to_cart(vphi::Vector{Float64}, pos::Array{Float64,2})
+function convert_vphi_to_cart(vphi::Vector{T}, pos::Matrix{T}) where T
 
-    phi = atan.(pos[:,1], pos[:,2])
+    phi = @views atan.(pos[1,:], pos[2,:])
 
-    vel = zeros(size(pos,1), 3)
+    vel = Matrix{eltype(pos[1])}(undef, 3, size(pos,2))
     
-    for i = 1:size(pos,1)
-        vel[i,1] = -vphi[i] * sin(phi[i])
-        vel[i,2] =  vphi[i] * cos(phi[i])
+    for i = 1:size(pos,2)
+        vel[1,i] = -vphi[i] * sin(phi[i])
+        vel[2,i] =  vphi[i] * cos(phi[i])
     end
 
     return vel
@@ -283,7 +286,7 @@ end
 
 function halo_rho(r, par)
     # β-model with β = 2/3
-    return @. par["rho0"] / ( 1.0 + (r * par["UnitLength_in_cm"] / par["rc"])^2) / par["UnitDensity_in_cgs"]
+    return @views @. par["rho0"] / ( 1.0 + (r * par["UnitLength_in_cm"] / par["rc"])^2) / par["UnitDensity_in_cgs"]
 end
 
 function construct_hot_halo(par)
@@ -335,7 +338,7 @@ function construct_hot_halo(par)
         t1 = time_ns()
     end
 
-    vphi = gashalo_vphi( sqrt.( pos[:,1].^2 .+ pos[:,2].^2 ), par)
+    vphi = gashalo_vphi( @views @. √( pos[1,:]^2 + pos[2,:]^2 ), par)
     vel  = convert_vphi_to_cart(vphi, pos)
 
     if par["verbose"]
