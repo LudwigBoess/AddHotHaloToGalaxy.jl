@@ -225,6 +225,11 @@ function write_to_file(galaxy, pos_halo, vel_halo, u_halo, rho_halo, m_halo, par
     header.nall[1]  += Nhalo
     header.massarr  .= 0.0
 
+    if par["black_hole"]
+        header.npart[end] = 1
+        header.nall[end]  = 1
+    end
+
     # store total number of particles
     Ntotal = sum(header.npart)
     
@@ -266,7 +271,15 @@ function write_to_file(galaxy, pos_halo, vel_halo, u_halo, rho_halo, m_halo, par
         end
     end
 
-    B = Float32.(par["B0"] .* ones(3,Ntotal) )
+    if par["black_hole"]
+
+        pos[:,end] = Float32[0.0, 0.0, 0.0]
+        vel[:,end] = Float32[0.0, 0.0, 0.0]
+        m[end]     = Float32(par["M_bh"] * 1.989e+33 / par["UnitMass_in_g"]) # Convert to Gadget units
+
+    end
+
+    B = Float32.(par["B0"] .* ones( 3, header.npart[1]) )
 
     if par["verbose"]
         t2 = time_ns()
@@ -288,7 +301,14 @@ function write_to_file(galaxy, pos_halo, vel_halo, u_halo, rho_halo, m_halo, par
     write_block(f, m,   "MASS")
     write_block(f, u,   "U")
     write_block(f, B,   "BFLD")
-    write_block(f, rho, "RHO")
+
+    if par["black_hole"]
+        Mbh = par["M_bh"] * 1.989e+33 / par["UnitMass_in_g"] # Convert to Gadget units
+        write_block(f, Float32(Mbh), "BHMA")
+        write_block(f, Float32(0.0), "BHMD")
+        write_block(f, Int32(1), "BHPC")
+    end
+
     close(f)
 
     if par["verbose"]

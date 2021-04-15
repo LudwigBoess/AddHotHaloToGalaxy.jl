@@ -23,6 +23,10 @@ rho_IGM:            1.e-29    # g/cm^3
 cc:                 12.5  
 rc_frac:            0.35
 
+# black hole parameters
+black_hole: False             # flag if BH should be added
+M_bh:       1.e+6             # Mass of BH in units M_sun
+
 # units
 UnitLength_in_cm:     3.085678e+21   
 UnitMass_in_g:        1.989e+43
