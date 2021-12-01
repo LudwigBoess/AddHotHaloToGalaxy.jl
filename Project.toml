@@ -12,5 +12,4 @@ TriangularShapedCloudInterpolation = "51f55a63-7ec5-4b6d-a5a9-9bbf03ec1f62"
 YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
 
 [compat]
-GadgetIO = "0.4"
-TriangularShapedCloudInterpolation = "0.2"
+julia = "1.6"
