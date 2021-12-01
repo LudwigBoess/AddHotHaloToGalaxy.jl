@@ -27,6 +27,7 @@ end
 function construct_large_glass(pos::Array{Float64,2}, n::Int32, ntot::Int64, 
                                nx::Int64, ny::Int64, nz::Int64)
 
+    N = nx * ny * nz * n
     pos_out = Matrix{eltype(pos[1])}(undef, 3, N)
 
     count = 0
@@ -207,9 +208,9 @@ function gashalo_beta(par)
     # convert back to cartesian coordinates
     pos_out = Matrix{eltype(r[1])}(undef, 3, size(r,1))
     @inbounds for i = 1:size(r,1)
-        pos_out[1, i] = r * cos(ϕ[i]) * sin(θ[i])
-        pos_out[2, i] = r * sin(ϕ[i]) * sin(θ[i])
-        pos_out[3, i] = r             * cos(θ[i])
+        pos_out[1, i] = r[i] * cos(ϕ[i]) * sin(θ[i])
+        pos_out[2, i] = r[i] * sin(ϕ[i]) * sin(θ[i])
+        pos_out[3, i] = r[i]             * cos(θ[i])
     end
 
     return r, pos_out
@@ -338,7 +339,8 @@ function construct_hot_halo(par)
         t1 = time_ns()
     end
 
-    vphi = gashalo_vphi( @views @. √( pos[1,:]^2 + pos[2,:]^2 ), par)
+    r_plane = @views @. √( pos[1,:]^2 + pos[2,:]^2 )
+    vphi = gashalo_vphi( r_plane, par)
     vel  = convert_vphi_to_cart(vphi, pos)
 
     if par["verbose"]

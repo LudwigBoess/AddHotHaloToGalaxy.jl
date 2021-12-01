@@ -4,7 +4,7 @@ using Base.Threads
 
 function run_tsc(pos_disk, rho, resx, resy, resz, verbose)
 
-    pos_disk_tsc = Array{eltype(pos_disk[1]),2}(undef, size(pos_disk,2), 1)
+    pos_disk_tsc = Array{eltype(pos_disk[1]),2}(undef, size(pos_disk,2), 3)
 
     minx = minimum(pos_disk[1,:])
     maxx = maximum(pos_disk[1,:]) .* (1.0+1.e-6)
